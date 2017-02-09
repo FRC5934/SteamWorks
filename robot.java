@@ -37,7 +37,7 @@ public class Robot extends IterativeRobot {
 	 *    5 - victorElevator   NOT YET INSTALLED
 	 *    6 - victorIntake
 	 *    7 -
-	 *    8 - victorClimber1
+	 *    8 - victorClimber1 Hey! This is defective!
 	 *    9 - victorClimber2
 	 */
 	Victor victorDriveLeft = new Victor(1), victorDriveRight = new Victor(0), 

@@ -4,6 +4,7 @@ import edu.wpi.first.wpilibj.ADXRS450_Gyro;
 import edu.wpi.first.wpilibj.Compressor;
 import edu.wpi.first.wpilibj.DoubleSolenoid;
 import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
+import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.RobotDrive;
@@ -34,36 +35,42 @@ public class Robot extends IterativeRobot {
 	 *    2 - spark775Shooter1
 	 *    3 - spark775Shooter2
 	 *    4 - victorAgitator   NOT YET INSTALLED
-	 *    5 - victorElevator   NOT YET INSTALLED
+	 *    5 -    
 	 *    6 - victorIntake
 	 *    7 -
-	 *    8 - victorClimber1 Hey! This is defective!
-	 *    9 - victorClimber2
+	 *    8 - victorClimber
+	 *    9 - victorElevator
 	 */
 	Victor victorDriveLeft = new Victor(1), victorDriveRight = new Victor(0), 
-			victorAgitator = new Victor(4), victorElevator = new Victor(5), victorIntake = new Victor(6),
-			victorClimber1 = new Victor(8), victorClimber2 = new Victor(9);
+			victorAgitator = new Victor(4), victorElevator = new Victor(9), victorIntake = new Victor(6),
+		    victorClimber = new Victor(8);
 	
 	Spark spark775Shooter1 = new Spark(2), spark775Shooter2 = new Spark(3);
 	
-	DoubleSolenoid climberSolenoid = new DoubleSolenoid(0, 1);
-	DoubleSolenoid intakeSolenoid = new DoubleSolenoid(6,7);
+	DoubleSolenoid climberSolenoid = new DoubleSolenoid(6, 7);
+	DoubleSolenoid intakeSolenoid = new DoubleSolenoid(0,1);
+	
+	Encoder shooterEncoder = new Encoder(0, 1, false, Encoder.EncodingType.k4X);
+	Encoder autoEncoder = new Encoder(2, 3, false, Encoder.EncodingType.k4X);
 	
 	//Robot Objects
-	Shooter shooter = new Shooter(victorElevator, spark775Shooter1, spark775Shooter2);
+	Shooter shooter = new Shooter(victorElevator, spark775Shooter1, spark775Shooter2, shooterEncoder);
 	Intake intake = new Intake(victorIntake, victorAgitator, intakeSolenoid);
 	RobotDrive mainDrive = new RobotDrive(victorDriveLeft,victorDriveRight);
-	Climber climber = new Climber(victorClimber1, victorClimber2, climberSolenoid);
+	Climber climber = new Climber(victorClimber, climberSolenoid);
 	
 	//Extras!
 	Joystick xbox = new Joystick(0), leftStick = new Joystick(1), rightStick = new Joystick(2);
 	Compressor airCompressor = new Compressor();
 	ADXRS450_Gyro gyro = new ADXRS450_Gyro();
+	 
 	static float Kp = (float) 0.03;
 	double angle;
 	double leftStickSpeed = 0;
 	double rightStickSpeed = 0;
 	
+	//Encoder
+
 
 	/**
 	 * This function is run when the robot is first started up and should be
@@ -77,12 +84,25 @@ public class Robot extends IterativeRobot {
 		
 		victorDriveLeft.setInverted(true);
 		victorDriveRight.setInverted(true);
-		victorClimber1.setInverted(true);
-		victorClimber2.setInverted(true);
+		victorClimber.setInverted(true);
+		spark775Shooter1.setInverted(true);
+		spark775Shooter2.setInverted(true);
+		victorElevator.setInverted(true);
+		
+		autoEncoder.setDistancePerPulse(.6);
+		
+		mainDrive.setSafetyEnabled(false);
 		
 		//gyro.calibrate();
 		//Timer.delay(10);
 		gyro.reset();
+		
+		//Encoders!
+		//sampleEncoder.setMaxPeriod(.1);
+		//sampleEncoder.setMinRate(10);
+		//sampleEncoder.setDistancePerPulse(5);
+		//sampleEncoder.setReverseDirection(true);
+		//sampleEncoder.setSamplesToAverage(7);
 	}
 
 	/**
@@ -98,6 +118,7 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousInit() {
+		
 		autoSelected = chooser.getSelected();
 		autoSelected = SmartDashboard.getString("Auto Selector",
 		defaultAuto);
@@ -111,32 +132,19 @@ public class Robot extends IterativeRobot {
 	
 	@Override
 	public void autonomousPeriodic() {
-		
 		SmartDashboard.putNumber("Left Wheel Speed ", victorDriveLeft.get());
 		SmartDashboard.putNumber("Right Wheel Speed ", victorDriveRight.get());
 		SmartDashboard.putNumber("Gyro Angle", gyro.getAngle());
-		
-		if(Timer.getMatchTime() >= 10)
-		{
+		SmartDashboard.putNumber("Drive Encoder", autoEncoder.getRaw());
+	
+
 		angle = gyro.getAngle();
 		mainDrive.drive(-.4, -angle * Kp);
     	Timer.delay(0.004);
-		}
+    	
+ 
+    	
 		
-		if(Timer.getMatchTime() >= 7 && Timer.getMatchTime() < 10 && gyro.getAngle() < 60)
-		{
-			mainDrive.tankDrive(-.7, .7);
-		}
-		
-		if(Timer.getMatchTime() >= 6.8 && Timer.getMatchTime() < 7)
-		gyro.reset();
-		
-		if(Timer.getMatchTime() >= .5 && Timer.getMatchTime() < 6.8)
-		{
-		angle = gyro.getAngle();
-		mainDrive.drive(-.4, -angle * Kp);
-    	Timer.delay(0.004);
-		}
 
 		/*
 		switch (autoSelected) {
@@ -159,18 +167,34 @@ public class Robot extends IterativeRobot {
 	public void teleopPeriodic() {
 		SmartDashboard.putNumber("Left Wheel Speed ", victorDriveLeft.get());
 		SmartDashboard.putNumber("Right Wheel Speed ", victorDriveRight.get());
-		SmartDashboard.putNumber("Gyro Angle", gyro.getAngle());
-    	
+		SmartDashboard.putNumber("Gyro Angle ", gyro.getAngle());
+		SmartDashboard.putNumber("Encoder getRate ", shooterEncoder.getRate());
+		SmartDashboard.putNumber("Lofty Units ", shooter.getShooterRPM());
+		SmartDashboard.putNumber("Shooter Speed ", shooter.getShooterSpeed());
+		SmartDashboard.putNumber("Agitator speed", victorAgitator.getSpeed());
+		SmartDashboard.putNumber("Drive Encoder", autoEncoder.getRaw());
+		SmartDashboard.putNumber("Drive Encoder 2", autoEncoder.getDistance());
+		
+		
+	
+		if(rightStick.getRawButton(12))
+		{
+			autoEncoder.reset();
+		}
+		
     	airCompressor.start();
     	
     	leftStickSpeed = leftStick.getRawAxis(1) * Math.abs(leftStick.getRawAxis(1));
     	rightStickSpeed = rightStick.getRawAxis(1) * Math.abs(rightStick.getRawAxis(1));
     	
     	mainDrive.tankDrive(leftStickSpeed, rightStickSpeed);
+    	Timer.delay(.004);
     	shooter.manipulateShooter(xbox);
     	intake.manipulateIntake(leftStick, rightStick);
     	climber.manipulateClimber(xbox, intake);
     	
+    	
+    	/**
     	if(leftStick.getRawButton(5))
     	{
     		gyro.reset();
@@ -181,6 +205,8 @@ public class Robot extends IterativeRobot {
     		gyro.calibrate();
     		Timer.delay(10);
     	}
+    	
+    	**/
     	
 	}
 	

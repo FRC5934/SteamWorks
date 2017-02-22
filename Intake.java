@@ -8,52 +8,50 @@ import edu.wpi.first.wpilibj.Victor;
 
 public class Intake {
 
-		private final double intakeSpeed = .8;
+		private final double intakeSpeed = 1;
 		private final double agitatorSpeed = 1;
 	
 		private Victor intake;
 		private Victor agitator;
 		private DoubleSolenoid intakeSolenoid;
 		
-		private int agitatorCounter;
-		
 		public Intake(Victor intake, Victor agitator, DoubleSolenoid intakeSolenoid)
 		{
 			this.intake = intake;
 			this.intakeSolenoid = intakeSolenoid;
 			this.agitator = agitator;
-			this.agitatorCounter = 2;
+			this.agitator.set(0);
+			this.intake.set(0);
+		
 		}
 		
-		public void manipulateIntake(Joystick leftStick, Joystick rightStick)
+		public void manipulateIntake(Joystick xbox, Joystick leftStick, Joystick rightStick)
 		{
 			
-			if(this.agitatorCounter % 2 == 0)
+			
+			if(rightStick.getRawButton(2))
 			{
 				startAgitator();
 			}
-			else
+			
+			if(leftStick.getRawButton(2))
 			{
 				stopAgitator();
 			}
 			
-			if(leftStick.getRawButton(6))
+			if(leftStick.getRawButton(1) || xbox.getRawButton(9))
 			{
-				this.agitatorCounter++;
-				Timer.delay(.05);
-			}
-			
-			if(leftStick.getRawButton(1))
-			{
+				System.out.println("This would raise the intake ...");
 				raiseIntake();
 			}
 			
 			if(rightStick.getRawButton(1))
 			{
+				System.out.println("This would lower the intake ...");
 				lowerIntake();
 			}
 			
-			if(rightStick.getRawButton(4))
+			if(rightStick.getRawButton(4) || xbox.getRawButton(2))
 			{
 				startIntake();
 			}

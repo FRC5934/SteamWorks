@@ -8,14 +8,12 @@ import edu.wpi.first.wpilibj.Victor;
 public class Climber {
 	private final double climberSpeed = 1;
 	
-	private Victor climber1;
-	private Victor climber2;
+	private Victor climber;
 	private DoubleSolenoid climberSolenoid;
 	
-	public Climber(Victor climber1, Victor climber2, DoubleSolenoid climberSolenoid)
+	public Climber(Victor climber, DoubleSolenoid climberSolenoid)
 	{
-		this.climber1 = climber1;
-		this.climber2 = climber2;
+		this.climber = climber;
 		this.climberSolenoid = climberSolenoid;
 	}
 	
@@ -58,14 +56,14 @@ public class Climber {
 	
 	public void climberStart()
 	{
-		this.climber1.set(climberSpeed);
-		this.climber2.set(climberSpeed);
+		this.climber.set(climberSpeed);
+		//this.climber2.set(climberSpeed);
 	}
 	
 	public void climberStop()
 	{
-		this.climber1.set(0);
-		this.climber2.set(0);
+		this.climber.set(0);
+		//this.climber2.set(0);
 	}
 
 }

@@ -7,6 +7,7 @@ import edu.wpi.first.wpilibj.DoubleSolenoid.Value;
 import edu.wpi.first.wpilibj.Encoder;
 import edu.wpi.first.wpilibj.IterativeRobot;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.PIDController;
 import edu.wpi.first.wpilibj.RobotDrive;
 import edu.wpi.first.wpilibj.Spark;
 import edu.wpi.first.wpilibj.Timer;
@@ -22,8 +23,9 @@ import edu.wpi.first.wpilibj.smartdashboard.*;
  * directory.
  */
 public class Robot extends IterativeRobot {
-	final String defaultAuto = "Default";
-	final String customAuto = "My Auto";
+	final String backwardNoTurn = "Backward No Turn";
+	final String backwardTurnRight= "Backward & Turn Right";
+	final String forwardTurnRight = "Forward & Turn Right";
 	String autoSelected;
 	
 	//Create all the objects!
@@ -50,8 +52,15 @@ public class Robot extends IterativeRobot {
 	DoubleSolenoid climberSolenoid = new DoubleSolenoid(6, 7);
 	DoubleSolenoid intakeSolenoid = new DoubleSolenoid(0,1);
 	
+	//Encoders
 	Encoder shooterEncoder = new Encoder(0, 1, false, Encoder.EncodingType.k4X);
 	Encoder autoEncoder = new Encoder(2, 3, false, Encoder.EncodingType.k4X);
+	PIDController goForwardPID = new PIDController(1, 1, 1, autoEncoder, victorDriveLeft);
+	double distanceError = 0; 
+	double distance_kp = 1.0/15;
+	double distance_ki = .2;
+	
+	
 	
 	//Robot Objects
 	Shooter shooter = new Shooter(victorElevator, spark775Shooter1, spark775Shooter2, shooterEncoder);
@@ -59,18 +68,17 @@ public class Robot extends IterativeRobot {
 	RobotDrive mainDrive = new RobotDrive(victorDriveLeft,victorDriveRight);
 	Climber climber = new Climber(victorClimber, climberSolenoid);
 	
+	
 	//Extras!
 	Joystick xbox = new Joystick(0), leftStick = new Joystick(1), rightStick = new Joystick(2);
 	Compressor airCompressor = new Compressor();
 	ADXRS450_Gyro gyro = new ADXRS450_Gyro();
-	 
-	static float Kp = (float) 0.03;
-	double angle;
-	double leftStickSpeed = 0;
-	double rightStickSpeed = 0;
 	
-	//Encoder
-
+	//Auto
+	Auto auto = new Auto(mainDrive, autoEncoder, gyro);
+	boolean distance1Achieved = false;
+	boolean angleAchieved = false;
+	boolean distance2Achieved = false;
 
 	/**
 	 * This function is run when the robot is first started up and should be
@@ -78,23 +86,21 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void robotInit() {
-		chooser.addDefault("Default Auto", defaultAuto);
-		chooser.addObject("My Auto", customAuto);
-		SmartDashboard.putData("Auto choices", chooser);
 		
 		victorDriveLeft.setInverted(true);
 		victorDriveRight.setInverted(true);
-		victorClimber.setInverted(true);
+		//victorClimber.setInverted(true);
 		spark775Shooter1.setInverted(true);
 		spark775Shooter2.setInverted(true);
 		victorElevator.setInverted(true);
-		
-		autoEncoder.setDistancePerPulse(.6);
+		victorIntake.setInverted(true);
+			
+		autoEncoder.setDistancePerPulse(.12);
 		
 		mainDrive.setSafetyEnabled(false);
 		
-		//gyro.calibrate();
-		//Timer.delay(10);
+		gyro.calibrate();
+		Timer.delay(10);
 		gyro.reset();
 		
 		//Encoders!
@@ -118,12 +124,24 @@ public class Robot extends IterativeRobot {
 	 */
 	@Override
 	public void autonomousInit() {
-		
-		autoSelected = chooser.getSelected();
-		autoSelected = SmartDashboard.getString("Auto Selector",
-		defaultAuto);
-		System.out.println("Auto selected: " + autoSelected);
+		distance1Achieved = false;
+		distance2Achieved = false;
+		angleAchieved = false;
 		gyro.reset();	
+		autoEncoder.reset();
+		
+		if(leftStick.getRawAxis(3) < -0.5)
+			{
+			autoSelected = backwardTurnRight;
+			}
+		if(leftStick.getRawAxis(3) > -0.5 && leftStick.getRawAxis(3) < 0.5)
+			{
+			autoSelected = backwardNoTurn;
+			}
+		if(leftStick.getRawAxis(3) > 0.5)
+			{
+			autoSelected = forwardTurnRight;
+			}
 	}
 
 	/**
@@ -132,48 +150,64 @@ public class Robot extends IterativeRobot {
 	
 	@Override
 	public void autonomousPeriodic() {
+		
 		SmartDashboard.putNumber("Left Wheel Speed ", victorDriveLeft.get());
 		SmartDashboard.putNumber("Right Wheel Speed ", victorDriveRight.get());
 		SmartDashboard.putNumber("Gyro Angle", gyro.getAngle());
-		SmartDashboard.putNumber("Drive Encoder", autoEncoder.getRaw());
+		SmartDashboard.putString("You picked the Auto : ", autoSelected);
 	
-
-		angle = gyro.getAngle();
-		mainDrive.drive(-.4, -angle * Kp);
-    	Timer.delay(0.004);
-    	
- 
-    	
-		
-
-		/*
 		switch (autoSelected) {
-		case customAuto:
-			// Put custom auto code here
+		case backwardNoTurn:
+			if(!distance1Achieved)
+			{
+				distance1Achieved = auto.driveBackward(85);
+			}
 			break;
-		case defaultAuto:
+			
+		case backwardTurnRight:
+			
+			if(!distance1Achieved)
+				distance1Achieved = auto.driveBackward(93);
+			if(distance1Achieved && !angleAchieved)
+				angleAchieved = auto.turnClockwise(60);
+			if(distance1Achieved && angleAchieved && !distance2Achieved)
+				distance2Achieved = auto.driveBackward(48 + 93);
+			break;
+			
+		case forwardTurnRight:
+			if(!distance1Achieved)
+				distance1Achieved = auto.driveForward(0);
+			if(distance1Achieved && !angleAchieved)
+				angleAchieved = auto.turnClockwise(0);
+			if(distance1Achieved && angleAchieved&& !distance2Achieved)
+				distance2Achieved = auto.driveBackward(0);
+			break;
+			
+			
 		default:
-			// Put default auto code here
+			mainDrive.tankDrive(0, 0);
 			break;
 		
 		}
-		*/
+		
 	}
+	
 
 	/**
 	 * This function is called periodically during operator control
 	 */
 	@Override
 	public void teleopPeriodic() {
-		SmartDashboard.putNumber("Left Wheel Speed ", victorDriveLeft.get());
-		SmartDashboard.putNumber("Right Wheel Speed ", victorDriveRight.get());
-		SmartDashboard.putNumber("Gyro Angle ", gyro.getAngle());
+		//SmartDashboard.putNumber("Left Wheel Speed ", victorDriveLeft.get());
+		//SmartDashboard.putNumber("Right Wheel Speed ", victorDriveRight.get());
+		//SmartDashboard.putNumber("Gyro Angle ", gyro.getAngle());
 		SmartDashboard.putNumber("Encoder getRate ", shooterEncoder.getRate());
-		SmartDashboard.putNumber("Lofty Units ", shooter.getShooterRPM());
+		SmartDashboard.putNumber("Shooter Encoder RPM ", shooter.getShooterRPM());
 		SmartDashboard.putNumber("Shooter Speed ", shooter.getShooterSpeed());
-		SmartDashboard.putNumber("Agitator speed", victorAgitator.getSpeed());
-		SmartDashboard.putNumber("Drive Encoder", autoEncoder.getRaw());
-		SmartDashboard.putNumber("Drive Encoder 2", autoEncoder.getDistance());
+		SmartDashboard.putNumber("Drive Encoder Rate", autoEncoder.getRate());
+		SmartDashboard.putNumber("Drive Encoder Count", autoEncoder.get());
+		SmartDashboard.putNumber("Drive Encoder Distance", autoEncoder.getDistance());
+		
 		
 		
 	
@@ -184,13 +218,10 @@ public class Robot extends IterativeRobot {
 		
     	airCompressor.start();
     	
-    	leftStickSpeed = leftStick.getRawAxis(1) * Math.abs(leftStick.getRawAxis(1));
-    	rightStickSpeed = rightStick.getRawAxis(1) * Math.abs(rightStick.getRawAxis(1));
-    	
-    	mainDrive.tankDrive(leftStickSpeed, rightStickSpeed);
+    	mainDrive.tankDrive(leftStick.getRawAxis(1), rightStick.getRawAxis(1));
     	Timer.delay(.004);
     	shooter.manipulateShooter(xbox);
-    	intake.manipulateIntake(leftStick, rightStick);
+    	intake.manipulateIntake(xbox, leftStick, rightStick);
     	climber.manipulateClimber(xbox, intake);
     	
     	
@@ -220,6 +251,9 @@ public class Robot extends IterativeRobot {
     	//double leftJoyY =xbox.getRawAxis(1);
     	//double leftTrigger = xbox.getRawAxis(2);
     	//double rightTrigger = xbox.getRawAxis(3);
+		
+    	//leftStickSpeed = leftStick.getRawAxis(1) * Math.abs(leftStick.getRawAxis(1));
+    	//rightStickSpeed = rightStick.getRawAxis(1) * Math.abs(rightStick.getRawAxis(1));
 	}
 }
 
